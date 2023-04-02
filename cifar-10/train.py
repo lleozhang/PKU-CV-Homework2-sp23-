@@ -9,12 +9,15 @@ import argparse
 from torch.utils.tensorboard  import SummaryWriter
 
 def MyCELoss(pred, gt):
-    # ----------TODO------------
+    
     # Implement CE loss here
-    # ----------TODO------------
-    return loss 
+    one_hot = torch.zeros_like(pred)
+    lines = torch.arange(pred.shape[0])
+    one_hot[lines, gt] = 1
+    loss = (one_hot * torch.log(pred)).sum(dim = -1).mean(dim = 0)
+    return -loss 
 
-def validate(epoch, model, val_loader, writer):
+def validate(epoch, model, val_loader, writer, lr):
     model.eval()
     top1 = AverageMeter()
     top5 = AverageMeter()
@@ -30,15 +33,15 @@ def validate(epoch, model, val_loader, writer):
         top1.update(acc1.item(), bsz)
         top5.update(acc5.item(), bsz)
 
-    # ----------TODO------------
     # draw accuracy curve!
-    # ----------TODO------------
-
+    writer.add_scalars('val/top1', {str(lr): top1.avg}, epoch)
+    writer.add_scalars('val/top5', {str(lr): top5.avg}, epoch)
+    
     print(' Val Acc@1 {top1.avg:.3f}'.format(top1=top1))
     print(' Val Acc@5 {top5.avg:.3f}'.format(top5=top5))
     return 
 
-def train(epoch, model, optimizer, train_loader, writer):
+def train(epoch, model, optimizer, train_loader, writer, lr):
     model.train()
 
     losses = AverageMeter()
@@ -68,10 +71,11 @@ def train(epoch, model, optimizer, train_loader, writer):
 
         iteration += 1
         if iteration % 50 == 0:
-            pass 
-            # ----------TODO------------
             # draw loss curve and accuracy curve!
-            # ----------TODO------------
+            writer.add_scalars('train/loss', {str(lr): loss.item()}, iteration)
+            writer.add_scalars('train/top1', {str(lr): top1.avg}, iteration)
+            writer.add_scalars('train/top5', {str(lr): top5.avg}, iteration)
+            
 
     print(' Epoch: %d'%(epoch))
     print(' Train Acc@1 {top1.avg:.3f}'.format(top1=top1))
@@ -87,7 +91,7 @@ def run(args):
     writer = SummaryWriter(log_dir=log_folder)
 
     # define dataset and dataloader
-    train_dataset = CIFAR10()
+    train_dataset = CIFAR10(train = True, aug = args.aug)
     val_dataset = CIFAR10(train=False)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batchsize, shuffle=True, num_workers=2)
@@ -116,7 +120,7 @@ def run(args):
         start_epoch = 0
 
     for epoch in range(start_epoch, args.total_epoch):
-        train(epoch, model, optimizer, train_loader, writer)
+        train(epoch, model, optimizer, train_loader, writer, args.lr)
         
         if epoch % args.save_freq == 0:
             state = {
@@ -128,7 +132,7 @@ def run(args):
             torch.save(state, save_file)
 
         with torch.no_grad():
-            validate(epoch, model, val_loader, writer)
+            validate(epoch, model, val_loader, writer, args.lr)
     return 
 
 if __name__ == '__main__':
@@ -139,6 +143,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--total_epoch', '-t', type=int, default=10, help="total epoch number for training")
     arg_parser.add_argument('--cont', '-c', action='store_true', help="whether to load saved checkpoints from $EXP_NAME and continue training")
     arg_parser.add_argument('--batchsize', '-b', type=int, default=20, help="batch size")
+    arg_parser.add_argument('--aug', '-a', action = 'store_true', help = 'whether to use data augmentation')
     args = arg_parser.parse_args()
 
     run(args)

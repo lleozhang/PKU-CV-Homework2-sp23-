@@ -3,6 +3,7 @@ import os.path
 import numpy as np
 import pickle
 import torch 
+from torchvision import transforms
 
 # # use below packages as you like 
 # import torchvision.transforms as tfs
@@ -13,7 +14,7 @@ class CIFAR10(torch.utils.data.Dataset):
     """
         modified from `CIFAR10 <https://www.cs.toronto.edu/~kriz/cifar.html>`_ Dataset.
     """
-    def __init__(self, train=True):
+    def __init__(self, train=True, aug = False):
         super(CIFAR10, self).__init__()
 
         self.base_folder = '../datasets/cifar-10-batches-py'
@@ -30,7 +31,7 @@ class CIFAR10(torch.utils.data.Dataset):
             file_list = self.train_list
         else:
             file_list = self.test_list
-
+        self.aug = aug
         self.data = []
         self.targets = []
 
@@ -47,7 +48,16 @@ class CIFAR10(torch.utils.data.Dataset):
 
         self.data = np.vstack(self.data).reshape(-1, 3, 32, 32)
         self.data = self.data.transpose((0, 2, 3, 1))  # convert to HWC
-
+        self.aug1 = transforms.Compose(
+                        [transforms.ToTensor(),
+                        transforms.RandomHorizontalFlip(p = 0.5)]
+                    )
+        self.aug2 = transforms.Compose(
+                        [transforms.ToTensor(),    
+                        transforms.ColorJitter(brightness=(2,2), 
+                                               contrast=(0.5,0.5), 
+                                               saturation=(0.5,0.5))]
+                     )
         self._load_meta()
 
     def _load_meta(self):
@@ -67,13 +77,24 @@ class CIFAR10(torch.utils.data.Dataset):
         """
         img, target = self.data[index], self.targets[index]
         img = img.astype(np.float32)
-        img = img.transpose(2, 0, 1)
         
-        # ------------TODO--------------
-        # data augmentation
-        # ------------TODO--------------
+        
+        if self.aug:
+            aug_p = torch.rand(1)
+            if aug_p.item() < 0.5:
+                img_out = self.aug1(img)
+                return img_out, target
+            elif aug_p.item() < 0.6:
+                img_out = self.aug2(img)
+                return img_out, target
+            else:
+                img = img.transpose(2, 0, 1)
+                return torch.tensor(img), target
+            
 
+        img = img.transpose(2, 0, 1)
         return img, target
+    
 
     def __len__(self):
         return len(self.data)
@@ -100,15 +121,21 @@ if __name__ == '__main__':
     img = Image.open('Lenna.png')
     img.save('../results/Lenna.png')
 
-    # --------------TODO------------------
-    # Copy the first kind of your augmentation code here
-    # --------------TODO------------------
-    aug1 = img
+    aug_f1 = transforms.Compose(
+                        [transforms.ToTensor(),
+                        transforms.RandomHorizontalFlip(p = 1),
+                        transforms.ToPILImage()]
+                    )
+    aug1 = aug_f1(img)
     aug1.save(f'../results/Lenna_aug1.png')
 
-    # --------------TODO------------------
-    # Copy the second kind of your augmentation code here
-    # --------------TODO------------------
-    aug2 = img
+    aug_f2 =  transforms.Compose(
+                        [transforms.ToTensor(),    
+                        transforms.ColorJitter(brightness=(2,2), 
+                                               contrast=(0.5,0.5), 
+                                               saturation=(0.5,0.5)),
+                        transforms.ToPILImage()]
+                     )
+    aug2 = aug_f2(img)
     aug2.save(f'../results/Lenna_aug2.png')
 

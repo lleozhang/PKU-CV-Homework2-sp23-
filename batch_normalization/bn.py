@@ -5,28 +5,30 @@ import cv2
 eps = 1e-5
 def bn_forward_test(x, gamma, beta, mean, var):
 
-    #----------------TODO------------------
     # Implement forward 
-    #----------------TODO------------------
-
+    out = gamma * ((x - mean / np.sqrt(var + eps))) + beta
     return out
 
 def bn_forward_train(x, gamma, beta):
 
-    #----------------TODO------------------
     # Implement forward 
-    #----------------TODO------------------
-
+    sample_mean = x.mean(axis = 0)
+    sample_var = x.var(axis = 0)
+    x_hat = (x - sample_mean) / np.sqrt(sample_var + eps)
+    out = gamma * x_hat + beta
     # save intermidiate variables for computing the gradient when backward
     cache = (gamma, x, sample_mean, sample_var, x_hat)
     return out, cache
     
 def bn_backward(dout, cache):
 
-    #----------------TODO------------------
+    
     # Implement backward 
-    #----------------TODO------------------
-
+    gamma, x, sample_mean, sample_var, x_hat = cache
+    dgamma = (dout * x_hat).sum(axis = 0)
+    dbeta = dout.sum(axis = 0)
+    dx = dout * gamma * np.sqrt(sample_var + eps)
+    
     return dx, dgamma, dbeta
 
 # This function may help you to check your code
@@ -66,8 +68,9 @@ if __name__ == "__main__":
     # compute mean and var for testing
     # add codes anywhere as you need
     # ---------------- TODO -------------------
-    mean = 0
-    var = 0
+    mean = np.zeros(16)
+    var = np.zeros(16)
+    theta = 0.99
 
     # training 
     for i in range(50):
@@ -77,6 +80,8 @@ if __name__ == "__main__":
         output_layer_1_act = 1 / (1+np.exp(-output_layer_1_bn))  #sigmoid activation function
         output_layer_2 = output_layer_1_act.dot(MLP_layer_2)
         pred_y = 1 / (1+np.exp(-output_layer_2))  #sigmoid activation function
+        mean = theta * mean + cache[2]
+        var = theta * var + cache[3]
 
         # compute loss 
         loss = -( gt_y * np.log(pred_y) + (1-gt_y) * np.log(1-pred_y)).sum()
